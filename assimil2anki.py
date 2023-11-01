@@ -1,4 +1,3 @@
-from enum import StrEnum
 from pathlib import Path
 import re
 import shutil
@@ -9,94 +8,125 @@ import eyed3
 
 try:
     assimil_audiofiles = Path(sys.argv[1])
+    if not assimil_audiofiles.exists():
+        print(f"ERROR: Folder {assimil_audiofiles} does not exist!")
+        sys.exit(1)
 except IndexError:
     print(f"USAGE: {Path(__file__).name} <Folder with ASSIMIL audio files>")
     sys.exit(1)
 
-lesson_files = sorted(assimil_audiofiles.glob('L*/*.[mM][pP]3'))
 metadata = {}
 rows = []
 media_folder_created = False
 media_folder = ''
 
-class Type(StrEnum):
-    SENTENCE = 'sentences'
-    EXERCISE = 'exercises'
-    TITLE = 'title'
-    @classmethod
-    def from_string(cls, s):
-        s = s.upper()
-        if s.startswith('S'):
-            return cls('sentences') 
-        elif s.startswith('T'):
-            return cls('exercises') 
-        elif s.startswith('N'):
-            return cls('title') 
+lesson_files = sorted(assimil_audiofiles.glob('L*/*.[mM][pP]3'))
+total_mp3_files = len(lesson_files)
+lesson_mp3_files = 0
+translate_title_mp3_files = 0
+skip_translate_files = False
+used_mp3_files = 0
 
 for path in lesson_files:
+
+    if path.stem.upper().startswith('L'):
+        # complete lesson files
+        lesson_mp3_files += 1
+        continue
 
     # extract information from mp3-tag
     audiofile = eyed3.load(path)
     album = audiofile.tag.album.replace(' ', '-')
-    sentence = audiofile.tag.title[4:]
+    track, text = audiofile.tag.title.split('-', maxsplit=1)
+    if track == 'S00TITLE':
+        track = 'S00'
+        text = 'TITLE-' + text
     artist = audiofile.tag.artist
-    lesson_nr = 'NA'
-    m = re.search('(L\d{3})', audiofile.tag.album)
-    if m is not None:
-        lesson_nr = m.group(0)
-    else:
-        pass
-        # TODO Error
+    lesson = re.search('(L\d{3})', album).group(0)
+    #print(album, track, text, artist, lesson)
 
-    if lesson_nr not in metadata:
-        metadata[lesson_nr] = {'sentences': {}, 'lesson_number': '', 'lesson_name': '', 'exercises': {}}
+    if lesson not in metadata:
+        metadata[lesson] = {'sentences': {}, 'translations': {}, 'conversations': {}, 'lesson_name': {}}
 
     if not media_folder_created:
         media_folder = Path(artist.replace(' ', '-') + '_anki_media')
         media_folder.mkdir(exist_ok=True)
         media_folder_created = True
 
-    type = Type.from_string(path.stem)
+    new_filename = Path(album + '-' + path.name)
+    track_type = track[0].upper()
 
-    if type == Type.TITLE:
+    if track_type == 'N':
+        metadata[lesson]['lesson_number'] = text.strip().title()
+    elif re.search('(TITLE|TTTLE|TITLLE)', text):
+        title, text = text.split('-', maxsplit=1)
+        text = text.strip().title()
+        metadata[lesson]['lesson_title'] = text
+    elif re.search('^TRANSLATE', text):
+        title, text = text.split('-', maxsplit=1)
+        text = text.strip().title()
+        metadata[lesson]['translate_title'] = text
+        if skip_translate_files:
+            translate_title_mp3_files += 1
+            continue
+        # keep the first translate file to hear the audio
+        skip_translate_files = True
+    elif re.search('^CONVERSATION', text):
+        metadata[lesson]['conversation_title'] = text
 
-        metadata[lesson_nr]['lesson_number'] = audiofile.tag.title.split('-')[1].capitalize()
+    text = text.strip()
+    if track_type == 'N':
+        text = text.title()
 
-    elif type == Type.SENTENCE or type == Type.EXERCISE:
+    labels = {'N': 'lesson_name', 'S': 'sentences', 'T': 'translations', 'X': 'conversations'}
+    label = labels[track_type]
+    track_number = int(track[1:])
 
-        # some files have typos
-        t = path.stem.upper()
-        if 'TITLE' in t or 'TTTLE' in t or 'TITLLE' in t:
-            metadata[lesson_nr]['lesson_name'] = audiofile.tag.title.split('-')[-1]
-        elif 'TRANSLATE' in t:
-            metadata[lesson_nr]['translate_name'] = audiofile.tag.title.split('-')[-1].capitalize()
-        else:
-            i = int(t[1:])
-            new_filename = Path(album + '-' + path.name)
+    if track_number not in metadata[lesson][label]:
+        metadata[lesson][label][track_number] = {}
+    metadata[lesson][label][track_number]['text'] = text
+    metadata[lesson][label][track_number]['filename'] = new_filename
 
-            if i not in metadata[lesson_nr][type]:
-                metadata[lesson_nr][type][i] = {}
-            metadata[lesson_nr][type][i]['text'] = sentence
-            metadata[lesson_nr][type][i]['filename'] = new_filename
+    # copy file with new filename
+    shutil.copyfile(path, media_folder / new_filename)
+    used_mp3_files += 1
 
-            # copy file with new filename
-            shutil.copyfile(path, media_folder / new_filename)
 
 for lesson, content in metadata.items():
 
-    for i, sentence in content['sentences'].items():
-        question = f"{lesson} - {content['lesson_name']} ({i})<br><br>[sound:{sentence['filename']}]"
-        answer = f"{sentence['text']}"
-        rows.append([question, answer, f"{artist}::{lesson[1:]} - {content['lesson_number']}"])
+    if 'lesson_title' not in content:
+        # turkish lesson 71 does not have a lesson title in the mp3 tags
+        content['lesson_title'] = content['lesson_number']
 
-    for i, sentence in content['exercises'].items():
-        question = f"{lesson} - {content['lesson_name']} ({content['translate_name']} {i})<br><br>[sound:{sentence['filename']}]"
+    header = f"{content['lesson_number']} ({lesson}) - {content['lesson_title']}"
+    deck = f"{artist}::{lesson[1:]} - {content['lesson_number']}"
+
+    for _, sentence in content['lesson_name'].items():
+        question = f"{header}<br><br>[sound:{sentence['filename']}]"
         answer = f"{sentence['text']}"
-        rows.append([question, answer, f"{artist}::{lesson[1:]} - {content['lesson_number']}"])
+        rows.append([question, answer, deck])
+
+    for i, sentence in content['sentences'].items():
+        question = f"{header} ({i})<br><br>[sound:{sentence['filename']}]"
+        answer = f"{sentence['text']}"
+        rows.append([question, answer, deck])
+
+    for i, sentence in content['translations'].items():
+        question = f"{header} ({content['translate_title']} {i})<br><br>[sound:{sentence['filename']}]"
+        answer = f"{sentence['text']}"
+        rows.append([question, answer, deck])
+
+    for i, sentence in content['conversations'].items():
+        question = f"{header}<br><br>[sound:{sentence['filename']}]"
+        if 'conversation_title' in content:
+            question = f"{header} ({content['conversation_title']} {i})<br><br>[sound:{sentence['filename']}]"
+        answer = f"{sentence['text']}"
+        rows.append([question, answer, deck])
 
 # write csv
 # documentation: https://docs.ankiweb.net/importing/text-files.html#file-headers
-with open(f"{artist.replace(' ', '-')}.csv", 'w') as f:
+csv_filename = f"{artist.replace(' ', '-')}.csv" 
+with open(csv_filename, 'w') as f:
     f.write('#separator:Tab\n')
     f.write('#html:true\n')
     f.write('#notetype:Basic\n')
@@ -105,5 +135,7 @@ with open(f"{artist.replace(' ', '-')}.csv", 'w') as f:
     for row in rows:
         f.write('\t'.join(row) + '\n')
 
-# copy files from media_folder into collection
-# see https://docs.ankiweb.net/files.html
+print(f"copied {used_mp3_files}, ignored {lesson_mp3_files} lesson files and {translate_title_mp3_files} translation title files (total: {used_mp3_files + lesson_mp3_files + translate_title_mp3_files}). All mp3 files in folder: {total_mp3_files}")
+print(f"You can now import {csv_filename} into Anki.")
+print(f"You need to copy the files from {media_folder} into your Anki collection as well.")
+print("Please visit https://docs.ankiweb.net/files.html for more information.")
