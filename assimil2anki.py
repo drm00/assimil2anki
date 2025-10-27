@@ -107,43 +107,38 @@ for lesson, content in metadata.items():
         # turkish lesson 71 does not have a lesson title in the mp3 tags
         content["lesson_title"] = content["lesson_number"]
 
-    header = f"{content['lesson_number']} ({lesson}) - {content['lesson_title']}"
-    deck = f"{artist}::{lesson[1:]} - {content['lesson_number']}"
+    deck = artist
+    l = [deck, lesson, content["lesson_number"], content["lesson_title"]]
 
     for _, sentence in content["lesson_name"].items():
         audio: str = f"[sound:{sentence['filename']}]"
-        question = header
-        answer = f"{sentence['text']}"
-        rows.append([question, answer, audio, deck])
+        sentence: str = sentence["text"]
+        rows.append([*l, sentence, audio, "", ""])
 
     for i, sentence in content["sentences"].items():
         audio: str = f"[sound:{sentence['filename']}]"
-        question = f"{header} ({i})"
-        answer = f"{sentence['text']}"
-        rows.append([question, answer, audio, deck])
+        sentence: str = sentence["text"]
+        rows.append([*l, sentence, audio, str(i), ""])
 
     for i, sentence in content["translations"].items():
         audio: str = f"[sound:{sentence['filename']}]"
-        question = f"{header} ({content['translate_title']} {i})"
-        answer = f"{sentence['text']}"
-        rows.append([question, answer, audio, deck])
+        sentence: str = sentence["text"]
+        rows.append([*l, sentence, audio, str(i), content["translate_title"]])
 
     for i, sentence in content["conversations"].items():
         audio: str = f"[sound:{sentence['filename']}]"
-        question = header
-        if "conversation_title" in content:
-            question = f"{header} ({content['conversation_title']} {i})"
-        answer = f"{sentence['text']}"
-        rows.append([question, answer, audio, deck])
+        sentence_title: str = content.get("conversation_title", "")
+        sentence: str = sentence["text"]
+        rows.append([*l, sentence, audio, str(i), sentence_title])
 
 # write csv
 # documentation: https://docs.ankiweb.net/importing/text-files.html#file-headers
 csv_filename = f"{artist.replace(' ', '-')}.csv"
 with open(csv_filename, "w") as f:
     f.write("#separator:Tab\n")
-    f.write("#html:true\n")
-    f.write("#notetype:Basic\n")
-    f.write("#deck column:4\n")
+    f.write("#notetype:Assimil\n")
+    f.write("#deck column:1\n")
+    f.write("#tags column:2\n")
 
     for row in rows:
         f.write("\t".join(row) + "\n")

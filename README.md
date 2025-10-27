@@ -1,10 +1,16 @@
 # assimil2anki
 
-This script creates an Anki deck from the Assimil audio lessons - each lesson is converted into a subdeck, while each sentence is placed on a separate card.
+This script creates an Anki deck from the Assimil audio lessons.
+For each sentence, two cards are created:
+
+  - Shadowing
+  - ActiveRecall
+
 The transcripts of the sentences, along with the chapter metadata, are extracted from the mp3-files and put on the cards along with the audio.
 The resulting deck is saved as a CSV file, ready for Anki to import.
 All relevant sentence audio files are copied into a separate folder (ends in _anki_media) and should be copied into the Anki collection as well, in order for Anki to play the audio while reviewing the cards.
 
+After the cards are imported, you have to fill in the "Translation" field on each note manually.
 ## Dependencies
 
 - eyed3 (pip install eyed3)
