@@ -42,7 +42,7 @@ for path in lesson_files:
         track = 'S00'
         text = 'TITLE-' + text
     artist = audiofile.tag.artist
-    lesson = re.search('(L\d{3})', album).group(0)
+    lesson = re.search(r'(L\d{3})', album).group(0)
     #print(album, track, text, artist, lesson)
 
     if lesson not in metadata:
@@ -72,6 +72,7 @@ for path in lesson_files:
         # keep the first translate file to hear the audio
         skip_translate_files = True
     elif re.search('^CONVERSATION', text):
+        # TODO strip CONVERSATION from the text
         metadata[lesson]['conversation_title'] = text
 
     text = text.strip()
