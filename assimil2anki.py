@@ -111,26 +111,30 @@ for lesson, content in metadata.items():
     deck = f"{artist}::{lesson[1:]} - {content['lesson_number']}"
 
     for _, sentence in content["lesson_name"].items():
-        question = f"{header}<br><br>[sound:{sentence['filename']}]"
+        audio: str = f"[sound:{sentence['filename']}]"
+        question = header
         answer = f"{sentence['text']}"
-        rows.append([question, answer, deck])
+        rows.append([question, answer, audio, deck])
 
     for i, sentence in content["sentences"].items():
-        question = f"{header} ({i})<br><br>[sound:{sentence['filename']}]"
+        audio: str = f"[sound:{sentence['filename']}]"
+        question = f"{header} ({i})"
         answer = f"{sentence['text']}"
-        rows.append([question, answer, deck])
+        rows.append([question, answer, audio, deck])
 
     for i, sentence in content["translations"].items():
-        question = f"{header} ({content['translate_title']} {i})<br><br>[sound:{sentence['filename']}]"
+        audio: str = f"[sound:{sentence['filename']}]"
+        question = f"{header} ({content['translate_title']} {i})"
         answer = f"{sentence['text']}"
-        rows.append([question, answer, deck])
+        rows.append([question, answer, audio, deck])
 
     for i, sentence in content["conversations"].items():
-        question = f"{header}<br><br>[sound:{sentence['filename']}]"
+        audio: str = f"[sound:{sentence['filename']}]"
+        question = header
         if "conversation_title" in content:
-            question = f"{header} ({content['conversation_title']} {i})<br><br>[sound:{sentence['filename']}]"
+            question = f"{header} ({content['conversation_title']} {i})"
         answer = f"{sentence['text']}"
-        rows.append([question, answer, deck])
+        rows.append([question, answer, audio, deck])
 
 # write csv
 # documentation: https://docs.ankiweb.net/importing/text-files.html#file-headers
@@ -139,7 +143,7 @@ with open(csv_filename, "w") as f:
     f.write("#separator:Tab\n")
     f.write("#html:true\n")
     f.write("#notetype:Basic\n")
-    f.write("#deck column:3\n")
+    f.write("#deck column:4\n")
 
     for row in rows:
         f.write("\t".join(row) + "\n")
