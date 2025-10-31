@@ -1,26 +1,40 @@
+import argparse
+from argparse import ArgumentParser
 from pathlib import Path
 import re
 import shutil
-import sys
 
 import eyed3
 
 
-try:
-    assimil_audiofiles = Path(sys.argv[1])
-    if not assimil_audiofiles.exists():
-        print(f"ERROR: Folder {assimil_audiofiles} does not exist!")
-        sys.exit(1)
-except IndexError:
-    print(f"USAGE: {Path(__file__).name} <Folder with ASSIMIL audio files>")
-    sys.exit(1)
+def parse_args():
+    parser: ArgumentParser = argparse.ArgumentParser(
+        description="Create an Anki deck from ASSIMIL audio files"
+    )
+
+    parser.add_argument(
+        "--audiofiles",
+        type=Path,
+        required=True,
+        help="Path to the ASSIMIL audio folder",
+    )
+
+    args = parser.parse_args()
+
+    if not args.audiofiles.is_dir():
+        parser.error(f"Folder does not exist: {args.audiofiles}")
+
+    return args.audiofiles
+
+
+audiofiles = parse_args()
 
 metadata = {}
 rows = []
 media_folder_created = False
 media_folder = ""
 
-lesson_files = sorted(assimil_audiofiles.glob("L*/*.[mM][pP]3"))
+lesson_files = sorted(audiofiles.glob("L*/*.[mM][pP]3"))
 total_mp3_files = len(lesson_files)
 lesson_mp3_files = 0
 translate_title_mp3_files = 0
@@ -44,14 +58,6 @@ for path in lesson_files:
     lesson = re.search(r"(L\d{3})", album).group(0)
     # print(album, track, text, artist, lesson)
 
-    if lesson not in metadata:
-        metadata[lesson] = {
-            "sentences": {},
-            "translations": {},
-            "conversations": {},
-            "lesson_name": {},
-        }
-
     if not media_folder_created:
         media_folder = Path(artist.replace(" ", "-") + "_anki_media")
         media_folder.mkdir(exist_ok=True)
@@ -59,6 +65,14 @@ for path in lesson_files:
 
     new_filename = Path(album + "-" + path.name)
     track_type = track[0].upper()
+
+    if lesson not in metadata:
+        metadata[lesson] = {
+            "sentences": {},
+            "translations": {},
+            "conversations": {},
+            "lesson_name": {},
+        }
 
     if track_type == "N":
         metadata[lesson]["lesson_number"] = text.strip().title()
