@@ -108,28 +108,32 @@ for lesson, content in metadata.items():
         content["lesson_title"] = content["lesson_number"]
 
     deck = artist
-    l = [deck, lesson, content["lesson_number"], content["lesson_title"]]
+    l = [content["lesson_number"], content["lesson_title"]]
+    e = [deck, lesson]
+    translation: str = "TODO"
 
     for _, sentence in content["lesson_name"].items():
         audio: str = f"[sound:{sentence['filename']}]"
         sentence: str = sentence["text"]
-        rows.append([*l, sentence, audio, "", ""])
+        rows.append([*l, sentence, translation, audio, "", "", *e])
 
     for i, sentence in content["sentences"].items():
         audio: str = f"[sound:{sentence['filename']}]"
         sentence: str = sentence["text"]
-        rows.append([*l, sentence, audio, str(i), ""])
+        rows.append([*l, sentence, translation, audio, str(i), "", *e])
 
     for i, sentence in content["translations"].items():
         audio: str = f"[sound:{sentence['filename']}]"
         sentence: str = sentence["text"]
-        rows.append([*l, sentence, audio, str(i), content["translate_title"]])
+        rows.append(
+            [*l, sentence, translation, audio, str(i), content["translate_title"], *e]
+        )
 
     for i, sentence in content["conversations"].items():
         audio: str = f"[sound:{sentence['filename']}]"
         sentence_title: str = content.get("conversation_title", "")
         sentence: str = sentence["text"]
-        rows.append([*l, sentence, audio, str(i), sentence_title])
+        rows.append([*l, sentence, translation, audio, str(i), sentence_title, *e])
 
 # write csv
 # documentation: https://docs.ankiweb.net/importing/text-files.html#file-headers
@@ -137,8 +141,11 @@ csv_filename = f"{artist.replace(' ', '-')}.csv"
 with open(csv_filename, "w") as f:
     f.write("#separator:Tab\n")
     f.write("#notetype:Assimil\n")
-    f.write("#deck column:1\n")
-    f.write("#tags column:2\n")
+    f.write(
+        "#columns:Lesson\tLessonTitle\tSentence\tTranslation\tAudio\tSentenceNumber\tSentenceType\tDeck\tTags\n"
+    )
+    f.write("#deck column:8\n")
+    f.write("#tags column:9\n")
 
     for row in rows:
         f.write("\t".join(row) + "\n")
